@@ -1,0 +1,26 @@
+docker-build-master-qemu:
+  image: docker:latest
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY 
+  script:
+    - docker build --pull -t "$CI_REGISTRY_IMAGE:dist-master" -f Dockerfile .
+    - docker run --rm -itd --name disterchangelog "$CI_REGISTRY_IMAGE:dist-master"
+    - docker cp disterchangelog:/app/dist/changelog.min.js ./changelog.min.js
+    - docker push "$CI_REGISTRY_IMAGE:dist-master"
+    - docker rm -f disterchangelog
+  artifacts:
+    paths:
+      - "changelog.min.js"
+  only:
+    - master
+
+trigger_build:
+  stage: deploy
+  image: curlimages/curl:7.72.0
+  script:
+    - "curl -X POST -F token=$PANELBUILDERTRIGGERTOKEN -F ref=master https://gitlab.com/api/v4/projects/18896853/trigger/pipeline"
+  only:
+   - master
